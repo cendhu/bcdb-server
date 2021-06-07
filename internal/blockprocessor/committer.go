@@ -330,7 +330,8 @@ func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types
 
 	for _, dbName := range tx.CreateDbs {
 		var value []byte
-		dbIndex, ok := tx.DbsIndex[dbName]
+
+		dbIndex, ok := tx.DBsIndex[dbName]
 		if ok {
 			v, err := json.Marshal(dbIndex.GetAttributeAndType())
 			if err != nil {
