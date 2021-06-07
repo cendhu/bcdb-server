@@ -9,6 +9,7 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/internal/identity"
 	"github.com/IBM-Blockchain/bcdb-server/internal/mptrie"
 	"github.com/IBM-Blockchain/bcdb-server/internal/provenance"
+	"github.com/IBM-Blockchain/bcdb-server/internal/stateindex"
 	"github.com/IBM-Blockchain/bcdb-server/internal/worldstate"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
@@ -198,7 +199,7 @@ func (c *committer) constructDBAndProvenanceEntries(block *types.Block) (map[str
 
 		tx := block.GetDbAdministrationTxEnvelope().GetPayload()
 		var err error
-		dbsUpdates[worldstate.DatabasesDBName], err = constructDBEntriesForDBAdminTx(tx, version)
+		dbsUpdates[worldstate.DatabasesDBName], err = constructDBEntriesForDBAdminTx(tx, version, c.db)
 		if err != nil {
 			return nil, nil, errors.WithMessage(err, "error while creating entries for db admin transaction")
 		}
@@ -323,7 +324,7 @@ func AddDBEntriesForDataTxAndUpdateDirtyWrites(
 	}
 }
 
-func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types.Version) (*worldstate.DBUpdates, error) {
+func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types.Version, db worldstate.DB) (*worldstate.DBUpdates, error) {
 	var toCreateDBs []*worldstate.KVWithMetadata
 	var indexForExistingDBs []*worldstate.KVWithMetadata
 
@@ -337,21 +338,33 @@ func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types
 			}
 			value = v
 
+			// for each DB, if index is defined, we need to create an
+			// index DB to store index entries for that DB
+			indexDB := &worldstate.KVWithMetadata{
+				Key: stateindex.IndexDBPrefix + dbName,
+				Metadata: &types.Metadata{
+					Version: version,
+				},
+			}
+			toCreateDBs = append(toCreateDBs, indexDB)
+
 			delete(tx.DbsIndex, dbName)
 		}
 
-		db := &worldstate.KVWithMetadata{
+		createDB := &worldstate.KVWithMetadata{
 			Key:   dbName,
 			Value: value,
 			Metadata: &types.Metadata{
 				Version: version,
 			},
 		}
-		toCreateDBs = append(toCreateDBs, db)
+		toCreateDBs = append(toCreateDBs, createDB)
 	}
 
+	var toDeleteDBs []string
 	for dbName, dbIndex := range tx.DbsIndex {
 		var value []byte
+
 		if dbIndex != nil && dbIndex.GetAttributeAndType() != nil {
 			v, err := json.Marshal(dbIndex.GetAttributeAndType())
 			if err != nil {
@@ -360,19 +373,42 @@ func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types
 			value = v
 		}
 
-		db := &worldstate.KVWithMetadata{
+		updateDBIndex := &worldstate.KVWithMetadata{
 			Key:   dbName,
 			Value: value,
 			Metadata: &types.Metadata{
 				Version: version,
 			},
 		}
-		indexForExistingDBs = append(indexForExistingDBs, db)
+		indexForExistingDBs = append(indexForExistingDBs, updateDBIndex)
+
+		// If the index definition is empty, we need to delete all index entries
+		// associated with that. This is simply done by deleteing the index DB
+		if dbIndex == nil || dbIndex.GetAttributeAndType() == nil {
+			if db.Exist(stateindex.IndexDBPrefix + dbName) {
+				toDeleteDBs = append(toDeleteDBs, stateindex.IndexDBPrefix+dbName)
+			}
+			continue
+		}
+
+		if db.Exist(stateindex.IndexDBPrefix + dbName) {
+			continue
+		}
+
+		// Only when the index definition is provided for the existing DB for the
+		// first time, we will reach here
+		indexDB := &worldstate.KVWithMetadata{
+			Key: stateindex.IndexDBPrefix + dbName,
+			Metadata: &types.Metadata{
+				Version: version,
+			},
+		}
+		indexForExistingDBs = append(indexForExistingDBs, indexDB)
 	}
 
 	return &worldstate.DBUpdates{
 		Writes:  append(toCreateDBs, indexForExistingDBs...),
-		Deletes: tx.DeleteDbs,
+		Deletes: append(tx.DeleteDbs, toDeleteDBs...),
 	}, nil
 }
 
