@@ -14,6 +14,7 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/internal/identity"
 	mptrieStore "github.com/IBM-Blockchain/bcdb-server/internal/mptrie/store"
 	"github.com/IBM-Blockchain/bcdb-server/internal/provenance"
+	"github.com/IBM-Blockchain/bcdb-server/internal/stateindex"
 	"github.com/IBM-Blockchain/bcdb-server/internal/worldstate"
 	"github.com/IBM-Blockchain/bcdb-server/internal/worldstate/leveldb"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
@@ -845,16 +846,19 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name              string
-		setup             func(db worldstate.DB)
-		expectedDBsBefore []string
-		dbAdminTx         *types.DBAdministrationTx
-		expectedDBsAfter  []string
-		expectedIndex     map[string]*types.DBIndex
-		valInfo           []*types.ValidationInfo
+		name                    string
+		setup                   func(db worldstate.DB)
+		expectedDBsBefore       []string
+		expectedIndexDBsBefore  []string
+		dbAdminTx               *types.DBAdministrationTx
+		expectedDBsAfter        []string
+		expectedIndex           map[string]*types.DBIndex
+		expectedIndexDBsAfter   []string
+		expectedNoIndexDBsAfter []string
+		valInfo                 []*types.ValidationInfo
 	}{
 		{
-			name: "create new DBss and delete existing DBs",
+			name: "create new DBs and delete existing DBs",
 			setup: func(db worldstate.DB) {
 				createDBs := map[string]*worldstate.DBUpdates{
 					worldstate.DatabasesDBName: {
@@ -894,6 +898,8 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 				},
 				"db4": nil,
 			},
+			expectedIndexDBsAfter:   []string{"db3"},
+			expectedNoIndexDBsAfter: []string{"db1", "db2", "db4"},
 			valInfo: []*types.ValidationInfo{
 				{
 					Flag: types.Flag_VALID,
@@ -932,15 +938,25 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 								Key:   "db2",
 								Value: indexDB2,
 							},
+							{
+								Key: "db3",
+							},
+							{
+								Key: stateindex.IndexDBPrefix + "db1",
+							},
+							{
+								Key: stateindex.IndexDBPrefix + "db2",
+							},
 						},
 					},
 				}
 
 				require.NoError(t, db.Commit(createDBs, 1))
 			},
-			expectedDBsBefore: []string{"db1", "db2"},
+			expectedDBsBefore:      []string{"db1", "db2", "db3"},
+			expectedIndexDBsBefore: []string{"db1", "db2"},
 			dbAdminTx: &types.DBAdministrationTx{
-				CreateDbs: []string{"db3", "db4"},
+				CreateDbs: []string{"db4", "db5"},
 				DbsIndex: map[string]*types.DBIndex{
 					"db1": {
 						AttributeAndType: map[string]types.Type{
@@ -961,7 +977,7 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 					},
 				},
 			},
-			expectedDBsAfter: []string{"db1", "db2", "db3", "db4"},
+			expectedDBsAfter: []string{"db1", "db2", "db3", "db4", "db5"},
 			expectedIndex: map[string]*types.DBIndex{
 				"db1": {
 					AttributeAndType: map[string]types.Type{
@@ -981,6 +997,8 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 					},
 				},
 			},
+			expectedIndexDBsAfter:   []string{"db1", "db3", "db4"},
+			expectedNoIndexDBsAfter: []string{"db2", "db5"},
 			valInfo: []*types.ValidationInfo{
 				{
 					Flag: types.Flag_VALID,
@@ -1036,6 +1054,10 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 				require.True(t, env.db.Exist(dbName))
 			}
 
+			for _, dbName := range tt.expectedIndexDBsBefore {
+				require.True(t, env.db.Exist(stateindex.IndexDBPrefix+dbName))
+			}
+
 			block := &types.Block{
 				Header: &types.BlockHeader{
 					BaseHeader: &types.BlockHeaderBase{
@@ -1065,6 +1087,14 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 				}
 				require.NoError(t, err)
 				require.Equal(t, expectedIndex, index)
+			}
+
+			for _, dbName := range tt.expectedIndexDBsAfter {
+				require.True(t, env.db.Exist(stateindex.IndexDBPrefix+dbName))
+			}
+
+			for _, dbName := range tt.expectedNoIndexDBsAfter {
+				require.False(t, env.db.Exist(stateindex.IndexDBPrefix+dbName))
 			}
 		})
 	}
