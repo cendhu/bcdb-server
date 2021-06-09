@@ -4,6 +4,7 @@ package stateindex
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -79,6 +80,7 @@ func TestConstructIndexEntries(t *testing.T) {
 	indexDB2Json, err := json.Marshal(indexDB2)
 	require.NoError(t, err)
 
+	encoded10 := base64.URLEncoding.EncodeToString(encodeOrderPreservingVarUint64(uint64(10)))
 	createDBsWithIndex := map[string]*worldstate.DBUpdates{
 		worldstate.DatabasesDBName: {
 			Writes: []*worldstate.KVWithMetadata{
@@ -189,20 +191,20 @@ func TestConstructIndexEntries(t *testing.T) {
 				IndexDBPrefix + "db1": {
 					Writes: []*worldstate.KVWithMetadata{
 						{
-							Key: `{"a":"a1","t":0,"v":"10","k":"person1"}`,
+							Key: `{"a":"a1","t":0,"m":"` + PositiveNumber + `","v":"` + encoded10 + `","k":"person1"}`,
 						},
 						{
-							Key: `{"a":"a2","t":1,"v":"ten","k":"person1"}`,
+							Key: `{"a":"a2","t":1,"m":"","v":"ten","k":"person1"}`,
 						},
 						{
-							Key: `{"a":"a3","t":2,"v":true,"k":"person1"}`,
+							Key: `{"a":"a3","t":2,"m":"","v":true,"k":"person1"}`,
 						},
 					},
 				},
 				IndexDBPrefix + "db2": {
 					Writes: []*worldstate.KVWithMetadata{
 						{
-							Key: `{"a":"a2","t":1,"v":"eleven","k":"person2"}`,
+							Key: `{"a":"a2","t":1,"m":"","v":"eleven","k":"person2"}`,
 						},
 					},
 				},
@@ -254,25 +256,25 @@ func TestConstructIndexEntries(t *testing.T) {
 				IndexDBPrefix + "db1": {
 					Writes: []*worldstate.KVWithMetadata{
 						{
-							Key: `{"a":"a3","t":2,"v":true,"k":"person1"}`,
+							Key: `{"a":"a3","t":2,"m":"","v":true,"k":"person1"}`,
 						},
 						{
-							Key: `{"a":"a2","t":1,"v":"10","k":"person1"}`,
+							Key: `{"a":"a2","t":1,"m":"","v":"10","k":"person1"}`,
 						},
 					},
 					Deletes: []string{
-						`{"a":"a3","t":2,"v":false,"k":"person1"}`,
-						`{"a":"a2","t":1,"v":"ten","k":"person1"}`,
+						`{"a":"a3","t":2,"m":"","v":false,"k":"person1"}`,
+						`{"a":"a2","t":1,"m":"","v":"ten","k":"person1"}`,
 					},
 				},
 				IndexDBPrefix + "db2": {
 					Writes: []*worldstate.KVWithMetadata{
 						{
-							Key: `{"a":"a2","t":1,"v":"eleven","k":"person2"}`,
+							Key: `{"a":"a2","t":1,"m":"","v":"eleven","k":"person2"}`,
 						},
 					},
 					Deletes: []string{
-						`{"a":"a2","t":1,"v":"ten","k":"person2"}`,
+						`{"a":"a2","t":1,"m":"","v":"ten","k":"person2"}`,
 					},
 				},
 			},
@@ -312,14 +314,14 @@ func TestConstructIndexEntries(t *testing.T) {
 			expectedIndexEntries: map[string]*worldstate.DBUpdates{
 				IndexDBPrefix + "db1": {
 					Deletes: []string{
-						`{"a":"a1","t":0,"v":"10","k":"person1"}`,
-						`{"a":"a2","t":1,"v":"ten","k":"person1"}`,
-						`{"a":"a3","t":2,"v":true,"k":"person1"}`,
+						`{"a":"a1","t":0,"m":"` + PositiveNumber + `","v":"` + encoded10 + `","k":"person1"}`,
+						`{"a":"a2","t":1,"m":"","v":"ten","k":"person1"}`,
+						`{"a":"a3","t":2,"m":"","v":true,"k":"person1"}`,
 					},
 				},
 				IndexDBPrefix + "db2": {
 					Deletes: []string{
-						`{"a":"a2","t":1,"v":"eleven","k":"person2"}`,
+						`{"a":"a2","t":1,"m":"","v":"eleven","k":"person2"}`,
 					},
 				},
 			},
@@ -345,6 +347,9 @@ func TestIndexEntriesForNewValues(t *testing.T) {
 	indexDef := map[string]types.Type{
 		"age": types.Type_NUMBER,
 	}
+
+	encoded25 := encodeOrderPreservingVarUint64(uint64(25))
+	encoded26 := encodeOrderPreservingVarUint64(uint64(26))
 
 	testCases := []struct {
 		name                 string
@@ -395,13 +400,15 @@ func TestIndexEntriesForNewValues(t *testing.T) {
 				{
 					Attribute: "age",
 					Type:      types.Type_NUMBER,
-					Value:     "25",
+					Metadata:  PositiveNumber,
+					Value:     encoded25,
 					Key:       "person1",
 				},
 				{
 					Attribute: "age",
 					Type:      types.Type_NUMBER,
-					Value:     "26",
+					Metadata:  PositiveNumber,
+					Value:     encoded26,
 					Key:       "person2",
 				},
 			},
@@ -421,6 +428,9 @@ func TestIndexEntriesOfExistingValues(t *testing.T) {
 	indexDef := map[string]types.Type{
 		"age": types.Type_NUMBER,
 	}
+
+	encoded25 := encodeOrderPreservingVarUint64(uint64(25))
+	encoded26 := encodeOrderPreservingVarUint64(uint64(26))
 
 	testCases := []struct {
 		name                 string
@@ -500,13 +510,15 @@ func TestIndexEntriesOfExistingValues(t *testing.T) {
 				{
 					Attribute: "age",
 					Type:      types.Type_NUMBER,
-					Value:     "25",
+					Metadata:  PositiveNumber,
+					Value:     encoded25,
 					Key:       "person1",
 				},
 				{
 					Attribute: "age",
 					Type:      types.Type_NUMBER,
-					Value:     "26",
+					Metadata:  PositiveNumber,
+					Value:     encoded26,
 					Key:       "person2",
 				},
 			},
@@ -525,12 +537,14 @@ func TestIndexEntriesOfExistingValues(t *testing.T) {
 }
 
 func TestPartialIndexEntriesForValue(t *testing.T) {
+	encoded10 := encodeOrderPreservingVarUint64(uint64(10))
 	expectedIndexEntries :=
 		[]*indexEntry{
 			{
 				Attribute: "a1",
 				Type:      types.Type_NUMBER,
-				Value:     "10",
+				Metadata:  PositiveNumber,
+				Value:     encoded10,
 			},
 			{
 				Attribute: "a2",
@@ -579,7 +593,8 @@ func TestPartialIndexEntriesForValue(t *testing.T) {
 					 "first3":{
 					 	"a3":true,
 						"a5": 11,
-						"a2": [1, 2, 3, 4]
+						"a2": [1, 2, 3, 4],
+						"a1": 10.3
 					 },
 					 "a4":"engineer"
 				}`,
@@ -609,7 +624,8 @@ func TestPartialIndexEntriesForValue(t *testing.T) {
 						"second3" : {
 							"a3": true
 						},
-						"a5": 11
+						"a5": 11,
+						"a1": 23.564
 					 },
 					 "a4":"engineer"
 				}`,
