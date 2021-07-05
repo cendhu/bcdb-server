@@ -59,7 +59,6 @@ consensus:
     # after which a new snapshot is taken.
     snapshotIntervalSize: 1000000000000
 
-
 # caConfig defines the paths to the x509 certificates of the root and
 # intermediate certificate authorities that issued all the certificates used
 # for client facing communication, including signing transactions and blocks.
