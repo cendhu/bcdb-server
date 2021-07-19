@@ -215,9 +215,10 @@ enum Flag {
 }
 
 enum Type {
-  NUMBER = 0;
-  STRING = 1;
-  BOOLEAN = 2;
+  INVALID = 0;
+  NUMBER = 1;
+  STRING = 2;
+  BOOLEAN = 3;
 }
 
 // ConsensusMetadata holds data specific to the consensus protocol ordering the block.

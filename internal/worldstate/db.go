@@ -4,6 +4,7 @@ package worldstate
 
 import (
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 const (
@@ -51,6 +52,8 @@ type DB interface {
 	GetConfig() (*types.ClusterConfig, *types.Metadata, error)
 	// GetIndexDefinition returns the index definition of a given database
 	GetIndexDefinition(dbName string) ([]byte, *types.Metadata, error)
+	// GetIterator returns an iterator to fetch values associated with a range of keys
+	GetIterator(dbName string, startKey, endKey []byte) (iterator.Iterator, error)
 	// Commit commits the updates to each database
 	Commit(dbsUpdates map[string]*DBUpdates, blockNumber uint64) error
 	// Height returns the state database block height. In other

@@ -202,3 +202,12 @@ message GetMostRecentUserOrNodeQuery {
     string id = 3;
     Version  version = 4;
 }
+
+message ComplexQuery {
+    string user_id = 1;
+    repeated bytes selector = 2;
+    uint32 limit = 3;
+    uint32 skip = 4;
+    map<string, string> sort = 5;
+    repeated string fields = 6;
+}

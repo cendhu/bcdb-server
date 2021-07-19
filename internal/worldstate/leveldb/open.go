@@ -148,7 +148,6 @@ func openExistingLevelDBInstance(c *Config) (*LevelDB, error) {
 		if err != nil {
 			return nil, errors.WithMessagef(err, "failed to open leveldb file for database %s", dbName)
 		}
-
 		l.dbs[dbName] = &db{
 			name:      dbName,
 			file:      file,

@@ -4,7 +4,7 @@ package bcdb
 
 import (
 	"github.com/IBM-Blockchain/bcdb-server/internal/blockstore"
-	"github.com/IBM-Blockchain/bcdb-server/internal/errors"
+	internalErrors "github.com/IBM-Blockchain/bcdb-server/internal/errors"
 	"github.com/IBM-Blockchain/bcdb-server/internal/identity"
 	"github.com/IBM-Blockchain/bcdb-server/internal/worldstate"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
@@ -53,7 +53,7 @@ func (q *worldstateQueryProcessor) getDBStatus(dbName string) (*types.GetDBStatu
 // getState return the state associated with a given key
 func (q *worldstateQueryProcessor) getData(dbName, querierUserID, key string) (*types.GetDataResponse, error) {
 	if worldstate.IsSystemDB(dbName) {
-		return nil, &errors.PermissionErr{
+		return nil, &internalErrors.PermissionErr{
 			ErrMsg: "no user can directly read from a system database [" + dbName + "]. " +
 				"To read from a system database, use /config, /user, /db rest endpoints instead of /data",
 		}
@@ -64,7 +64,7 @@ func (q *worldstateQueryProcessor) getData(dbName, querierUserID, key string) (*
 		return nil, err
 	}
 	if !hasPerm {
-		return nil, &errors.PermissionErr{
+		return nil, &internalErrors.PermissionErr{
 			ErrMsg: "the user [" + querierUserID + "] has no permission to read from database [" + dbName + "]",
 		}
 	}
@@ -77,7 +77,7 @@ func (q *worldstateQueryProcessor) getData(dbName, querierUserID, key string) (*
 	acl := metadata.GetAccessControl()
 	if acl != nil {
 		if !acl.ReadUsers[querierUserID] && !acl.ReadWriteUsers[querierUserID] {
-			return nil, &errors.PermissionErr{
+			return nil, &internalErrors.PermissionErr{
 				ErrMsg: "the user [" + querierUserID + "] has no permission to read key [" + key + "] from database [" + dbName + "]",
 			}
 		}
@@ -100,7 +100,7 @@ func (q *worldstateQueryProcessor) getUser(querierUserID, targetUserID string) (
 	acl := metadata.GetAccessControl()
 	if acl != nil {
 		if !acl.ReadUsers[querierUserID] && !acl.ReadWriteUsers[querierUserID] {
-			return nil, &errors.PermissionErr{
+			return nil, &internalErrors.PermissionErr{
 				ErrMsg: "the user [" + querierUserID + "] has no permission to read info of user [" + targetUserID + "]",
 			}
 		}
@@ -139,4 +139,8 @@ func (q *worldstateQueryProcessor) getNodeConfig(nodeID string) (*types.GetNodeC
 	}
 
 	return c, nil
+}
+
+func (q *worldstateQueryProcessor) executeJSONQuery(dbName string, encodedQuery []byte) error {
+	return nil
 }
