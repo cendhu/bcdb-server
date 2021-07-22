@@ -174,7 +174,7 @@ func (l *LevelDB) Commit(dbsUpdates []*worldstate.DBUpdates, blockNumber uint64)
 		if err := l.commitToDB(db, updates); err != nil {
 			return err
 		}
-		l.logger.Infof("changes committed to the database %s, took %s", dbName, time.Since(start).String())
+		l.logger.Infof("changes committed to the database %s, took %s", updates.DBName, time.Since(start).String())
 	}
 
 	l.dbsList.RLock()
