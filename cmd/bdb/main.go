@@ -5,6 +5,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"sync"
 
@@ -85,6 +87,10 @@ func startCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			go func() {
+				log.Println(http.ListenAndServe("localhost:6060", nil))
+			}()
 
 			var wg sync.WaitGroup
 
