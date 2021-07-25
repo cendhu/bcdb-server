@@ -8,6 +8,7 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"github.com/pkg/errors"
+	"sync"
 )
 
 // validator validates the each transaction read set present in a
@@ -104,16 +105,23 @@ func (v *validator) validateBlock(block *types.Block) ([]*types.ValidationInfo, 
 	switch block.Payload.(type) {
 	case *types.Block_DataTxEnvelopes:
 		dataTxEnvs := block.GetDataTxEnvelopes().Envelopes
-		valInfo := make([]*types.ValidationInfo, len(dataTxEnvs))
-		pendingOps := newPendingOperations()
+		valInfoArray, usersWithValidSigPerTX, err := v.parallelSigValidation(dataTxEnvs)
+		if err != nil {
+			return nil, err
+		}
 
+		pendingOps := newPendingOperations()
 		for txNum, txEnv := range dataTxEnvs {
-			valRes, err := v.dataTxValidator.validate(txEnv, pendingOps)
+			if valInfoArray[txNum].Flag != types.Flag_VALID {
+				continue
+			}
+
+			valRes, err := v.dataTxValidator.validate(txEnv, usersWithValidSigPerTX[txNum], pendingOps)
 			if err != nil {
 				return nil, errors.WithMessage(err, "error while validating data transaction")
 			}
 
-			valInfo[txNum] = valRes
+			valInfoArray[txNum] = valRes
 			if valRes.Flag != types.Flag_VALID {
 				v.logger.Debugf("data transaction [%v] is invalid due to [%s]", txEnv.Payload, valRes.ReasonIfInvalid)
 				continue
@@ -130,7 +138,7 @@ func (v *validator) validateBlock(block *types.Block) ([]*types.ValidationInfo, 
 			}
 		}
 
-		return valInfo, nil
+		return valInfoArray, nil
 
 	case *types.Block_UserAdministrationTxEnvelope:
 		userTxEnv := block.GetUserAdministrationTxEnvelope()
@@ -180,6 +188,40 @@ func (v *validator) validateBlock(block *types.Block) ([]*types.ValidationInfo, 
 	default:
 		return nil, errors.Errorf("unexpected transaction envelope in the block")
 	}
+}
+
+func (v *validator) parallelSigValidation(dataTxEnvs []*types.DataTxEnvelope) ([]*types.ValidationInfo, [][]string, error) {
+	valInfoArray := make([]*types.ValidationInfo, len(dataTxEnvs))
+	usersWithValidSigPerTX := make([][]string, len(dataTxEnvs))
+	errorArray := make([]error, len(dataTxEnvs))
+
+	var wg sync.WaitGroup
+	wg.Add(len(dataTxEnvs))
+
+	for txNum, txEnv := range dataTxEnvs {
+		go func(txEnv *types.DataTxEnvelope, usersWithValidSig *[]string, valInfo **types.ValidationInfo, err *error) {
+			usersWithValidSignTx, vInfo, vErr := v.dataTxValidator.validateSignatures(txEnv)
+			if vErr != nil {
+				*err = vErr
+			} else {
+				*usersWithValidSig = usersWithValidSignTx
+				*valInfo = vInfo
+				if vInfo.Flag != types.Flag_VALID {
+					v.logger.Debugf("data transaction [%v] is invalid due to [%s]", txEnv.Payload, vInfo.ReasonIfInvalid)
+				}
+			}
+			wg.Done()
+		}(txEnv, &usersWithValidSigPerTX[txNum], &valInfoArray[txNum], &errorArray[txNum])
+	}
+	wg.Wait()
+
+	for txNum, err := range errorArray {
+		if err != nil {
+			v.logger.Errorf("error validating signatures in tx number %d, error: %s", txNum, err)
+			return nil, nil, err
+		}
+	}
+	return valInfoArray, usersWithValidSigPerTX, nil
 }
 
 type pendingOperations struct {

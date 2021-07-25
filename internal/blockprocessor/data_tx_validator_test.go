@@ -1009,7 +1009,14 @@ func TestValidateDataTx(t *testing.T) {
 
 			tt.setup(env.db)
 
-			result, err := env.validator.dataTxValidator.validate(tt.txEnv, tt.pendingOps)
+			usersWithValidSignTx, valInfo, err := env.validator.dataTxValidator.validateSignatures(tt.txEnv)
+			require.NoError(t, err)
+			if valInfo.Flag != types.Flag_VALID {
+				require.Equal(t, tt.expectedResult, valInfo)
+				return
+			}
+
+			result, err := env.validator.dataTxValidator.validate(tt.txEnv, usersWithValidSignTx, tt.pendingOps)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedResult, result)
 		})

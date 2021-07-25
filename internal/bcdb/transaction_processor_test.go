@@ -208,14 +208,10 @@ func setupTxProcessor(t *testing.T, env *txProcessorTestEnv, dbName string) {
 }
 
 func TestTransactionProcessor(t *testing.T) {
-	t.Parallel()
-
-	cryptoDir, conf := testConfiguration(t)
-	require.NotEqual(t, "", cryptoDir)
-	defer os.RemoveAll(conf.LocalConfig.Server.Database.LedgerDirectory)
-
 	t.Run("commit a data transaction asynchronously", func(t *testing.T) {
-		t.Parallel()
+		cryptoDir, conf := testConfiguration(t)
+		require.NotEqual(t, "", cryptoDir)
+		defer os.RemoveAll(conf.LocalConfig.Server.Database.LedgerDirectory)
 		env := newTxProcessorTestEnv(t, cryptoDir, conf)
 		defer env.cleanup()
 
@@ -322,7 +318,9 @@ func TestTransactionProcessor(t *testing.T) {
 	})
 
 	t.Run("commit a data transaction synchronously", func(t *testing.T) {
-		t.Parallel()
+		cryptoDir, conf := testConfiguration(t)
+		require.NotEqual(t, "", cryptoDir)
+		defer os.RemoveAll(conf.LocalConfig.Server.Database.LedgerDirectory)
 		env := newTxProcessorTestEnv(t, cryptoDir, conf)
 		defer env.cleanup()
 
@@ -424,7 +422,9 @@ func TestTransactionProcessor(t *testing.T) {
 	})
 
 	t.Run("duplicate txID with the already committed transaction", func(t *testing.T) {
-		t.Parallel()
+		cryptoDir, conf := testConfiguration(t)
+		require.NotEqual(t, "", cryptoDir)
+		defer os.RemoveAll(conf.LocalConfig.Server.Database.LedgerDirectory)
 		env := newTxProcessorTestEnv(t, cryptoDir, conf)
 		defer env.cleanup()
 
@@ -458,7 +458,9 @@ func TestTransactionProcessor(t *testing.T) {
 	})
 
 	t.Run("duplicate txID with either pending or already committed transaction", func(t *testing.T) {
-		t.Parallel()
+		cryptoDir, conf := testConfiguration(t)
+		require.NotEqual(t, "", cryptoDir)
+		defer os.RemoveAll(conf.LocalConfig.Server.Database.LedgerDirectory)
 		env := newTxProcessorTestEnv(t, cryptoDir, conf)
 		defer env.cleanup()
 
@@ -496,7 +498,9 @@ func TestTransactionProcessor(t *testing.T) {
 	})
 
 	t.Run("duplicate txID with either pending or already committed transaction", func(t *testing.T) {
-		t.Parallel()
+		cryptoDir, conf := testConfiguration(t)
+		require.NotEqual(t, "", cryptoDir)
+		defer os.RemoveAll(conf.LocalConfig.Server.Database.LedgerDirectory)
 		env := newTxProcessorTestEnv(t, cryptoDir, conf)
 		defer env.cleanup()
 
@@ -611,7 +615,7 @@ func testConfiguration(t *testing.T) (string, *config.Configurations) {
 					ReorderedTransactionBatch: 100,
 					Block:                     100,
 				},
-				LogLevel: "debug",
+				LogLevel: "info",
 			},
 			BlockCreation: config.BlockCreationConf{
 				MaxBlockSize:                2,
