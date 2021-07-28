@@ -942,10 +942,10 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 								Key: "db3",
 							},
 							{
-								Key: stateindex.IndexDBPrefix + "db1",
+								Key: stateindex.IndexDB("db1"),
 							},
 							{
-								Key: stateindex.IndexDBPrefix + "db2",
+								Key: stateindex.IndexDB("db2"),
 							},
 						},
 					},
@@ -1055,7 +1055,7 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 			}
 
 			for _, dbName := range tt.expectedIndexDBsBefore {
-				require.True(t, env.db.Exist(stateindex.IndexDBPrefix+dbName))
+				require.True(t, env.db.Exist(stateindex.IndexDB(dbName)))
 			}
 
 			block := &types.Block{
@@ -1090,11 +1090,11 @@ func TestStateDBCommitterForDBBlock(t *testing.T) {
 			}
 
 			for _, dbName := range tt.expectedIndexDBsAfter {
-				require.True(t, env.db.Exist(stateindex.IndexDBPrefix+dbName))
+				require.True(t, env.db.Exist(stateindex.IndexDB(dbName)))
 			}
 
 			for _, dbName := range tt.expectedNoIndexDBsAfter {
-				require.False(t, env.db.Exist(stateindex.IndexDBPrefix+dbName))
+				require.False(t, env.db.Exist(stateindex.IndexDB(dbName)))
 			}
 		})
 	}

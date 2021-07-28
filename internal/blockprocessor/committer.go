@@ -342,7 +342,7 @@ func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types
 			// for each DB, if index is defined, we need to create an
 			// index DB to store index entries for that DB
 			indexDB := &worldstate.KVWithMetadata{
-				Key: stateindex.IndexDBPrefix + dbName,
+				Key: stateindex.IndexDB(dbName),
 				Metadata: &types.Metadata{
 					Version: version,
 				},
@@ -386,20 +386,20 @@ func constructDBEntriesForDBAdminTx(tx *types.DBAdministrationTx, version *types
 		// If the index definition is empty, we need to delete all index entries
 		// associated with that. This is simply done by deleteing the index DB
 		if dbIndex == nil || dbIndex.GetAttributeAndType() == nil {
-			if db.Exist(stateindex.IndexDBPrefix + dbName) {
-				toDeleteDBs = append(toDeleteDBs, stateindex.IndexDBPrefix+dbName)
+			if db.Exist(stateindex.IndexDB(dbName)) {
+				toDeleteDBs = append(toDeleteDBs, stateindex.IndexDB(dbName))
 			}
 			continue
 		}
 
-		if db.Exist(stateindex.IndexDBPrefix + dbName) {
+		if db.Exist(stateindex.IndexDB(dbName)) {
 			continue
 		}
 
 		// Only when the index definition is provided for the existing DB for the
 		// first time, we will reach here
 		indexDB := &worldstate.KVWithMetadata{
-			Key: stateindex.IndexDBPrefix + dbName,
+			Key: stateindex.IndexDB(dbName),
 			Metadata: &types.Metadata{
 				Version: version,
 			},
