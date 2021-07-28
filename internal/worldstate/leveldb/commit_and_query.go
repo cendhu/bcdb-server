@@ -15,7 +15,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 var (
@@ -161,6 +163,34 @@ func (l *LevelDB) GetConfig() (*types.ClusterConfig, *types.Metadata, error) {
 // GetIndexDefinition returns the index definition of a given database
 func (l *LevelDB) GetIndexDefinition(dbName string) ([]byte, *types.Metadata, error) {
 	return l.Get(worldstate.DatabasesDBName, dbName)
+}
+
+// GetIterator returns an iterator to fetch values associated with a range of keys
+// startKey is inclusive while the endKey is exclusive
+func (l *LevelDB) GetIterator(dbName string, startKey, endKey string) (iterator.Iterator, error) {
+	l.dbsList.RLock()
+	db := l.dbs[dbName]
+	l.dbsList.RUnlock()
+
+	if db == nil {
+		l.logger.Errorf("database %s does not exist", dbName)
+		return nil, errors.Errorf("database %s does not exist", dbName)
+	}
+
+	r := &util.Range{}
+	if startKey == "" {
+		r.Start = nil
+	} else {
+		r.Start = []byte(startKey)
+	}
+
+	if endKey == "" {
+		r.Limit = nil
+	} else {
+		r.Limit = []byte(endKey)
+	}
+
+	return db.file.NewIterator(r, &opt.ReadOptions{}), nil
 }
 
 // Commit commits the updates to the database

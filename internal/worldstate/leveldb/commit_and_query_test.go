@@ -291,7 +291,7 @@ func TestCommitAndQuery(t *testing.T) {
 		return db1KVs, db2KVs
 	}
 
-	t.Run("Get(), GetVersion(), and Has() on empty databases", func(t *testing.T) {
+	t.Run("Get(), GetVersion(), Has(), and GetIterator() on empty databases", func(t *testing.T) {
 		t.Parallel()
 		env := newTestEnv(t)
 		defer env.cleanup()
@@ -313,13 +313,18 @@ func TestCommitAndQuery(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, exist)
 			}
+
+			iter, err := l.GetIterator(db, "key0", "key3")
+			require.NoError(t, err)
+			require.NoError(t, iter.Error())
+			require.False(t, iter.Next())
 		}
 	})
 
 	// Scenario-2: For both databases (db1, db2), create
 	// two keys per database (db1-key1, db1-key2 for db1) and
 	// (db2-key1, db2-key2 for db2) and commit them.
-	t.Run("Get(), GetVersion(), and Has() on non-empty databases", func(t *testing.T) {
+	t.Run("Get(), GetVersion(), Has(), and GetIterator() on non-empty databases", func(t *testing.T) {
 		t.Parallel()
 		env := newTestEnv(t)
 		defer env.cleanup()
@@ -347,6 +352,17 @@ func TestCommitAndQuery(t *testing.T) {
 			require.True(t, exist)
 		}
 
+		iter, err := l.GetIterator("db1", "db1-key1", "db1-key2")
+		defer iter.Release()
+		require.NoError(t, err)
+		require.NoError(t, iter.Error())
+		expectedKeys := []string{"db1-key1"}
+		var keys []string
+		for iter.Next() {
+			keys = append(keys, string(iter.Key()))
+		}
+		require.ElementsMatch(t, expectedKeys, keys)
+
 		for key, expectedValAndMetadata := range db2KVs {
 			val, metadata, err := l.Get("db2", key)
 			require.NoError(t, err)
@@ -367,6 +383,22 @@ func TestCommitAndQuery(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, exist)
 		}
+
+		// open-end query when the start and end keys are empty
+		iter1, err := l.GetIterator("db2", "", "")
+		defer iter1.Release()
+		require.NoError(t, err)
+		require.NoError(t, iter1.Error())
+		expectedKeys = []string{"db2-key1", "db2-key2"}
+		keys = []string{}
+		for iter1.Next() {
+			keys = append(keys, string(iter1.Key()))
+		}
+		require.ElementsMatch(t, expectedKeys, keys)
+
+		iter2, err := l.GetIterator("db3", "", "")
+		require.Nil(t, iter2)
+		require.EqualError(t, err, "database db3 does not exist")
 	})
 
 	// Scenario-2: For both databases (db1, db2), update
