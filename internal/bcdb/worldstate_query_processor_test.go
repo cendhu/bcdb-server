@@ -118,7 +118,6 @@ func TestGetDBStatus(t *testing.T) {
 }
 
 func TestGetData(t *testing.T) {
-
 	setup := func(db worldstate.DB, userID, dbName string) {
 		user := &types.User{
 			Id: userID,
@@ -775,3 +774,143 @@ func TestGetConfig(t *testing.T) {
 		require.True(t, proto.Equal(expectedSingleNodeConfig, singleNodeConfigEnvelope))
 	})
 }
+
+// func TestExecuteQueries(t *testing.T) {
+// 	setup := func(db worldstate.DB, userID, dbName string) {
+// 		user := &types.User{
+// 			Id: userID,
+// 			Privilege: &types.Privilege{
+// 				DbPermission: map[string]types.Privilege_Access{
+// 					dbName: types.Privilege_ReadWrite,
+// 				},
+// 			},
+// 		}
+
+// 		u, err := proto.Marshal(user)
+// 		require.NoError(t, err)
+
+// 		createUser := map[string]*worldstate.DBUpdates{
+// 			worldstate.UsersDBName: {
+// 				Writes: []*worldstate.KVWithMetadata{
+// 					{
+// 						Key:   string(identity.UserNamespace) + userID,
+// 						Value: u,
+// 						Metadata: &types.Metadata{
+// 							Version: &types.Version{
+// 								BlockNum: 2,
+// 								TxNum:    1,
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 		}
+// 		require.NoError(t, db.Commit(createUser, 2))
+
+// 		indexDef := map[string]types.Type{
+// 			"attr1": types.Type_STRING,
+// 			"attr2": types.Type_BOOLEAN,
+// 			"attr3": types.Type_STRING,
+// 		}
+// 		marshaledIndexDef, err := json.Marshal(indexDef)
+// 		require.NoError(t, err)
+
+// 		indexDBName := stateindex.IndexDB(dbName)
+
+// 		require.NoError(
+// 			t,
+// 			db.Commit(
+// 				map[string]*worldstate.DBUpdates{
+// 					worldstate.DatabasesDBName: {
+// 						Writes: []*worldstate.KVWithMetadata{
+// 							{
+// 								Key:   dbName,
+// 								Value: marshaledIndexDef,
+// 							},
+// 							{
+// 								Key: indexDBName,
+// 							},
+// 						},
+// 					},
+// 				},
+// 				1,
+// 			),
+// 		)
+// 	}
+
+// 	t.Run("getData returns data", func(t *testing.T) {
+
+// 		env := newWorldstateQueryProcessorTestEnv(t)
+// 		defer env.cleanup(t)
+
+// 		setup(env.db, "testUser", "test-db")
+
+// 		val := []byte("value1")
+// 		metadata1 := &types.Metadata{
+// 			Version: &types.Version{
+// 				BlockNum: 2,
+// 				TxNum:    1,
+// 			},
+// 			AccessControl: &types.AccessControl{
+// 				ReadUsers: map[string]bool{
+// 					"testUser": true,
+// 				},
+// 			},
+// 		}
+
+// 		metadata2 := &types.Metadata{
+// 			Version: &types.Version{
+// 				BlockNum: 2,
+// 				TxNum:    1,
+// 			},
+// 		}
+
+// 		dbsUpdates := map[string]*worldstate.DBUpdates{
+// 			"test-db": {
+// 				Writes: []*worldstate.KVWithMetadata{
+// 					{
+// 						Key:      "key1",
+// 						Value:    val,
+// 						Metadata: metadata1,
+// 					},
+// 					{
+// 						Key:      "key2",
+// 						Value:    val,
+// 						Metadata: metadata2,
+// 					},
+// 				},
+// 			},
+// 		}
+// 		require.NoError(t, env.db.Commit(dbsUpdates, 2))
+
+// 		testCases := []struct {
+// 			key              string
+// 			expectedValue    []byte
+// 			expectedMetadata *types.Metadata
+// 		}{
+// 			{
+// 				key:              "key1",
+// 				expectedValue:    val,
+// 				expectedMetadata: metadata1,
+// 			},
+// 			{
+// 				key:              "key2",
+// 				expectedValue:    val,
+// 				expectedMetadata: metadata2,
+// 			},
+// 			{
+// 				key:              "not-present",
+// 				expectedValue:    nil,
+// 				expectedMetadata: nil,
+// 			},
+// 		}
+
+// 		for _, testCase := range testCases {
+// 			payload, err := env.q.getData("test-db", "testUser", testCase.key)
+// 			require.NoError(t, err)
+// 			require.NotNil(t, payload)
+// 			require.Equal(t, testCase.expectedValue, payload.Value)
+// 			require.True(t, proto.Equal(testCase.expectedMetadata, payload.Metadata))
+// 		}
+// 	})
+// }

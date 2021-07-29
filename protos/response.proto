@@ -186,3 +186,13 @@ message TxReceiptResponse {
   ResponseHeader header = 1;
   TxReceipt receipt = 2;
 }
+
+message ExecuteQueryResponseEnvelope {
+  ExecuteQueryResponse response = 1;
+  bytes signature = 2;
+}
+
+message ExecuteQueryResponse {
+  ResponseHeader header = 1;
+  repeated KVWithMetadata result = 2;
+}
