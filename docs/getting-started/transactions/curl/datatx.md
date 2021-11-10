@@ -7,12 +7,27 @@ title: Data Transaction
 We can store, update, delete any state, i.e., key-value pair, on the ledger by issuing a data transaction.
 By submitting a `POST /data/tx {txPaylod}`, we can perform a data transaction where `txPayload` contains reads, writes, and deletes of states.
 
-> As a prerequisite, we need to create users `alice` and `bob`. Refer [here](./usertx.md) for examples on creating users. Further, the node
-should have a user database named `db2`. Refer [here](./dbtx.md) for examples on creating databases.
+Using a data transaction, we can do the following:
 
-## Storing a new state
+  1. Creation of new states
+  2. Update existing states
+  3. Deletion of existing states
+  4. Operations on multiple databases
+  5. Multi-signatures transactions
 
-Let's store a new state with the key `key1`.
+## Pre-Requisite
+It is recommended to start a fresh orion server for executing these examples. Otherwise, you need to carefully change the block number specified
+as part of version in the read-set of the transaction payload. You will get more clarity as you read this doc.
+
+Once a fresh orion server is started after removing the ledger directory,
+  - [create two databases named db1 and db2](./dbtx#creation-of-databases), and
+  - [create two users alice and bob](./usertx#addition-of-users).
+
+## Creation of new states
+
+### Create a state with key `key1`
+
+Let's store a new state with the key `key1` with the value `{"name":"abc","age":31,"graduated":true}`.
 
 ```json
  curl \
@@ -31,7 +46,7 @@ Let's store a new state with the key `key1`.
 		        "data_writes": [
 			        {
                         "key": "key1",
-                        "value": "eXl5",
+                        "value": "eyJuYW1lIjoiYWJjIiwiYWdlIjozMSwiZ3JhZHVhdGVkIjp0cnVlfQ==",
                         "acl": {
                             "read_users": {
                                 "alice": true,
@@ -47,19 +62,28 @@ Let's store a new state with the key `key1`.
 		]
 	},
     "signatures": {
-        "alice": "MEQCIAM/FYzdfVlQGWBPcyDMp2BRDyzQdTdusOl0M/UBCk2gAiAxns+4m30Y/HzlO0e0dK0HnaWhbxch5tUys0P0ME7ZPw=="
+        "alice": "MEUCIHS1BA4ZIeLcmlb/HSwhXGIuzqZOXxpirHevWx426nZgAiEAnCk3hoDXZ0Pn5jlU0igQLkHT3TU08qWH+rPgxVCYbD0="
     }
 }'
 ```
 The payload contains `must_sign_user_ids` which is a list of user ids who must sign the transaction's payload. The
-`db_operations` hold the `data_writes` to be applied on the specified `db_name`. The `value` in `data_writes` must
-be encoded in base64. The `acl` contains list of users in the `read_users` who can read-only the state and a list of
+`db_operations` hold the `data_writes` to be applied on the specified `db_name`, i.e., `db2`. The `value` in `data_writes` must
+be encoded in base64. We need to use the `encoder` utility to get the base64 encoded output as shown below:
+```sh
+./bin/encoder -data='{"name":"abc","age":31,"graduated":true}'
+```
+**Output**
+```sh
+eyJuYW1lIjoiYWJjIiwiYWdlIjozMSwiZ3JhZHVhdGVkIjp0cnVlfQ==
+```
+
+The `acl` contains list of users in the `read_users` who can read-only the state and a list of
 users in the `read_write_users` who can both read and write to the state. Here, the `signatures` holds a map of
 each user in the `must_sign_user_ids` to their digital signature.
 
 The signature is computed using the `alice` private key as follows:
 ```
-./bin/signer -privatekey=deployment/sample/crypto/alice/alice.key -data='{"must_sign_user_ids":["alice"],"tx_id":"1b6d6414-9b58-45d0-9723-1f31712add81","db_operations":[{"db_name":"db2","data_writes":[{"key":"key1","value":"eXl5","acl":{"read_users":{"alice":true,"bob":true},"read_write_users":{"alice":true}}}]}]}'
+./bin/signer -privatekey=deployment/sample/crypto/alice/alice.key -data='{"must_sign_user_ids":["alice"],"tx_id":"1b6d6414-9b58-45d0-9723-1f31712add81","db_operations":[{"db_name":"db2","data_writes":[{"key":"key1","value":"eyJuYW1lIjoiYWJjIiwiYWdlIjozMSwiZ3JhZHVhdGVkIjp0cnVlfQ==","acl":{"read_users":{"alice":true,"bob":true},"read_write_users":{"alice":true}}}]}]}'
 ```
 **Output**
 ```
@@ -98,7 +122,7 @@ Once the above transaction gets committed, the submitter of the transaction woul
 }
 ```
 
-### Checking the existance of the state
+### Checking the existance of `key1`
 
 Let's query the node to see whether `key1` exists. The query can be submitted by either `alice` or `bob` as both have
 the read permission to this key. No one else can read `key1` including the admin user of the node. In this example,

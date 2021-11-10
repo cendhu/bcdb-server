@@ -5,32 +5,23 @@ title: Database Administration Transaction
 
 # Database Administration Transaction
 
-To create or delete a database, we needs to submit a database administration transaction.
+To create or delete user databases, we need to issue a `POST /db/tx {txPayload}` where `txPayload`
+contains information about the database to be created and/or deleted.
 
-When the database node boots up for the first time, it would create a default database called `bdb` and
-3 system databases named `_users`, `_dbs`, `_config`. The `bdb` database can be used to submit
-data transactions whereas system databases are internal to the `bdb` server. The user cannot
-directly read or write to the system databases.
+Let's cover the following topics:
 
-To create or delete user databases, user needs to issue a `POST /db/tx {txPayload}` where `txPayload`
-contains information about the database to be created and deleted.
+  1. [Creation of new databases without index](#creation-of-databases)
+  2. [Creation of a new database with index definition](#creation-of-a-database-with-index-definition)
+  3. [Deletion of existing databases](#deletion-of-databases)
+  4. [Creation and deletion of databases within a single transaction](#creation-and-deletion-of-databases-in-a-single-transaction)
+  5. [Invalid database administration transactions](#invalid-database-administration-transaction)
 
-In queries, we had to set the `UserID` and `Signature` headers. Whereas in the
-transaction, we need to pass both the `UserID` and `Signature` as part of the `txPayload` itself.
-
-Next, we will see example for
-  1. [creation of new databases](#creation-of-databases)
-  2. [deletion of existing databases](#deletion-of-databases)
-  3. [creation and deletion of databases within a single transaction](#creation-and-deletion-of-databases-in-a-single-transaction)
-  4. [invalid database administration transactions](#invalid-database-administration-transaction)
+Note that all database administration transactions must be submitted by the admin.
 
 ## Creation of Databases
 
-We can create a new database to store data/states by issuing a database administration transaction.
-Note that the database to be created should not exist in the node. Otherwise, the transaction would
-fail.
-
-The following curl command submits a database administration transaction to create two new databases
+### Create databases named db1 and db2
+The following `cURL` command submits a database administration transaction to create two new databases
 named `db1` and `db2`:
 
 ```json
@@ -48,7 +39,7 @@ named `db1` and `db2`:
 		]
 	},
   "signature": "MEUCIQDidxd5ScjpfYTIfVmSfC874zO0iosSyQUzRprs8j7VXgIgR7QxISwdjgXX58TktYXobJHwbCC3F/14rxCg0F8Ma1w="
-}'
+}' | jq .
 ```
 
 The `payload` of the database administration transaction must contain a `"user_id"` who submits the transaction, `"tx_id"` to
@@ -57,7 +48,7 @@ command.
 
 As all administrative transactions must be submitted only by the admin, the `"user_id"` is set to `"admin"`. As we are creating
 two dbs named `db1` and `db2`, the `"create_dbs"` is set to `["db1","db2"]`. Finally, the signature field contains the admin's
-signature on the payload and is computed using the following command:
+signature on the payload and is computed using the `signer` utility as shown below:
 
 ```sh
 ./bin/signer -privatekey=deployment/sample/crypto/admin/admin.key -data='{"user_id":"admin","tx_id":"1b6d6414-9b58-45d0-9723-1f31712add71","create_dbs":["db1","db2"]}'
@@ -102,8 +93,12 @@ The receipt for the above transaction would look something like the following:
 
 Once the above transaction gets validated and committed, we can check the existance of `db1` and `db2`.
 
-### Checking the existance of db1
-Compute the digital signature on the request payload `'{"user_id":"admin","db_name":"db1"}'`
+### Check the existance of db1
+
+In queries, we have to set the `UserID` and `Signature` headers. Whereas in the
+transaction, we need to pass both the `UserID` and `Signature` as part of the `txPayload` itself.
+
+First, compute the digital signature on the request payload `'{"user_id":"admin","db_name":"db1"}'`
 ```sh
 ./bin/signer -privatekey=deployment/sample/crypto/admin/admin.key -data='{"user_id":"admin","db_name":"db1"}'
 ```
@@ -111,7 +106,7 @@ The above command outputs the digital signature which needs to be set in the `Si
 ```
 MEYCIQCeZXLrqrMYodbbgR7UjHR2yq42H2wbNHbj6KEDwW8a1QIhAIv1udmHjwSssKnJjS5iY1LDfez1/RDv9ZEue4TDfcJZ
 ```
-Finally, we can submit the query.
+Next, submit the query by setting the `UserID` and `Signature` headers.
 ```sh
 curl \
       -H "Content-Type: application/json" \
@@ -132,9 +127,12 @@ curl \
 }
 ```
 
-### Checking the existance of db2
+### Check the existance of db2
 ```sh
 ./bin/signer -privatekey=deployment/sample/crypto/admin/admin.key -data='{"user_id":"admin","db_name":"db1"}'
+```
+The above command outputs the digital signature which needs to be set in the `Signature` header
+```sh
 MEYCIQCcd9pucHSiyrP/wTIfSxer1M1qhyuYZ954WyuNO6NNuAIhALXfLg9NdwIDY2xDoLO9GxY5k/5hPqOz6i7fxvurd/v3
 ```
 
@@ -158,10 +156,58 @@ curl \
 }
 ```
 
+## Creation of a Database with Index Definition
+
+The following `cURL` command submits a database administration transaction to create a databased named `db8`
+with index definition such that complex queries on fields in the JSON value can be executed.
+
+```json
+ curl \
+   -H "Content-Type: application/json" \
+   -H "TxTimeout: 2s" \
+   -X POST http://127.0.0.1:6001/db/tx \
+   --data '{
+    "payload": {
+		"user_id": "admin",
+		"tx_id": "1b6d6414-9b58-45d0-6723-1e31712add71",
+		"create_dbs": [
+			"db8"
+		],
+        "dbs_index":{
+            "db8":{
+                "attribute_and_type":{
+                    "attr1":2,
+                    "attr2":0,
+                    "attr3":1
+                }
+            }
+        }
+	},
+  "signature": "MEYCIQCQiIsgErny1j+bpAew+WeJu/uWTWEvJzmQT9HUFEwsYAIhAMZqUW2mUhg+MDa3a03TVd4fvWtSRS0U4ZJHnJzLzaiC"
+}' | jq .
+```
+
+The signature field contains the admin's
+signature on the payload and is computed using the `signer` utility as shown below:
+
+```sh
+./bin/signer -privatekey=deployment/sample/crypto/admin/admin.key -data='{"user_id":"admin","tx_id":"1b6d6414-9b58-45d0-6723-1e31712add71","create_dbs":["db8"],"dbs_index":{"db8":{"attribute_and_type":{"attr1":2,"attr2":0,"attr3":1}}}}'
+```
+
+The `payload` of the database administration transaction must contain a `"user_id"` who submits the transaction, `"tx_id"` to
+uniquely identify this transaction, a list of dbs to be created in a `"create_dbs"`, index definition for the database `db8`
+as shown in the above cURL command.
+
+Only indexed fields in a JSON document can be queried using JSON query. In the above transaction, the field named `attr1`,
+`attr2`, and `attr3` are asked to be indexed for JSON values stored in the database `db8`. This enables JSON queries using
+these indexed fields. For more clarity refer to query [examples]
+
 ## Deletion of Databases
 
 We can delete an existing database by issuing a database administration transaction. Note that the database to be deleted should exist in the node.
 Otherwise, the transaction would be marked invalid.
+
+### Delete databases named db1 and db2
 
 The following curl command can be used to delete two existing databases named `db1` and `db2`:
 ```json
@@ -179,7 +225,7 @@ curl \
 		]
 	},
   "signature": "MEYCIQDC3t4gX4rAXmzqM8359u751vueqaSmYvBEXpCXdafeKAIhAKitFv8r89rRRuAlABhjcgeJPIPTEpkcc3tOZ77YmypV"
-}'
+}' | jq .
 ```
 
 The `payload` of the database administration transaction must contain a `"user_id"` who submits the transaction, `"tx_id"` to
@@ -204,7 +250,7 @@ The receipt for the above transaction would look something like the following:
 
 Once the above transaction gets validated and committed, we can check that the `db1` and `db2` do not exist anymore.
 
-### Checking the existance of db1
+### Check the existance of db1
 ```sh
 curl \
       -H "Content-Type: application/json" \
@@ -224,7 +270,7 @@ curl \
 ```
 The default values are omitted and hence, the `exist = false` is not printed. 
 
-### Checking the existance of db2
+### Check the existance of db2
 
 ```sh
 curl \
@@ -245,12 +291,14 @@ curl \
 }
 ```
 
-The default values are omitted and hence, the `exist = false` is not printed. 
+The default values are omitted and hence, the `exist = false` is not printed.
+
+
 
 ## Creation and Deletion of Databases in a Single Transaction
 
-Within a single transaction, we can create and delete as many numnber of database we want. Note that we can only delete dbs
-if exists. Otherwise, the transaction would be invalidated. Hence, first create two databases using this [example](#creation-of-databases).
+Within a single transaction, we can create and delete as many number of databases we want. Note that we can only delete databases
+if exist. Otherwise, the transaction would be invalidated. Hence, first create two databases using this [example](#creation-of-databases).
 If this example was already executed on the database instance, change the `tx_id` used in that example and regenerate the
 signature. Also, do not forgot to update the `tx_id` and `signature` set in the payload passed to `cURL`.
 
@@ -275,7 +323,7 @@ This transactions will be valid only if `db3` & `db4` do not exist and `db1` & `
         ]
     },
   "signature": "MEUCIAjEtDZ2Q6n6cteisp94ggFXk3JUOXCjhfUlftc80gf6AiEA6IPtezn06SaPWQLfGhbx8BrFL4BI4iEIu/TDGtcaCKI="
-}'
+}' | jq .
 ```
 The signature is computed using the following command
 ```
@@ -311,14 +359,17 @@ Include the above signature and submit the transaction to create the database `d
 		]
 	},
   "signature": "MEUCIQCqYEdJOwf6JXAOCmAaub745uTEb2jyCFs10zZOhDIvUAIgN/ody6R9q3u5Q26Tabn3lPY1zz8NCUHCo6ymSu15jI4="
-}'
+}' | jq .
 ```
 
 Let's try to create `db5` again
 ```sh
 ./bin/signer -privatekey=deployment/sample/crypto/admin/admin.key -data='{"user_id":"admin","tx_id":"1b6d6414-9b58-45d0-9723-1f31712add74","create_dbs":["db5"]}'
+```
+```sh
 MEQCIBySAJhI5DCshQ/KWagquxtV8S6gRSiqG/qYrcwxhmyTAiAZG8wpcQx33uTlItROQN5B5izTZhntxhqWRTfv8t84uw==
 ```
+
 ```json
  curl \
    -H "Content-Type: application/json" \
@@ -333,7 +384,7 @@ MEQCIBySAJhI5DCshQ/KWagquxtV8S6gRSiqG/qYrcwxhmyTAiAZG8wpcQx33uTlItROQN5B5izTZhnt
 		]
 	},
   "signature": "MEQCIBySAJhI5DCshQ/KWagquxtV8S6gRSiqG/qYrcwxhmyTAiAZG8wpcQx33uTlItROQN5B5izTZhntxhqWRTfv8t84uw=="
-}'
+}' | jq .
 ```
 The above transaction would be invalidated with the following reason: `the database [db5] already exists in the cluster and hence, it cannot be created`
 The exact output would be
@@ -401,7 +452,7 @@ curl \
             ]
       },
       "signature": "MEUCIQCdUyJJEcBXqR1JPnIpaR6rVYXNSzFThhuLils1SWA2lAIgQ6KFClkJtrRRuhJqu3R7q9KUcQN2bBXrdvXJK3n9/Qk="
-  }'
+  }' | jq .
 ```
 The above transaction would be invalidated with the following reason: `the database [db6] does not exist in the cluster and hence, it cannot be deleted`.
 
@@ -444,7 +495,8 @@ Let's try to delete a system database `_config`
 
 ```sh
 ./bin/signer -privatekey=deployment/sample/crypto/admin/admin.key -data='{"user_id":"admin","tx_id":"1b6d6414-9b58-45d0-9723-1f31712add76","delete_dbs":["_config"]}'
-
+```
+```sh
 MEUCIAiy5DIQvpPk8a1+e1Q5hZww+fm71PUx1kyBF8i5Vr70AiEA5i7Q33t5TbL66k4syAYmitj+fWnf4z6nvIjuS3ilJ9s=
 ```
 ```json
@@ -461,7 +513,7 @@ curl \
             ]
       },
       "signature": "MEUCIAiy5DIQvpPk8a1+e1Q5hZww+fm71PUx1kyBF8i5Vr70AiEA5i7Q33t5TbL66k4syAYmitj+fWnf4z6nvIjuS3ilJ9s="
-  }'
+  }' | jq .
 ```
 The above transaction would be invalidated with the following reason: `the database [_config] is a system database which cannot be deleted`.
 The following is the transaction receipt:
