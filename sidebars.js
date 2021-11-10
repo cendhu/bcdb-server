@@ -19,18 +19,26 @@ module.exports = {
                         "getting-started/launching-one-node/overview",
                         "getting-started/launching-one-node/binary",
                         "getting-started/launching-one-node/docker",
-                        "getting-started/launching-one-node/crypto-materials",
+                        // "getting-started/launching-one-node/crypto-materials",
                     ],
                 },
+                // {
+                //     type: "category",
+                //     label: "Launching a Orion Cluster",
+                //     items: [
+                //         "getting-started/launching-cluster/overview",
+                //         "getting-started/launching-cluster/private-configuration",
+                //         "getting-started/launching-cluster/shared-configuration",
+                //         "getting-started/launching-cluster/crypto-materials",
+                //         "getting-started/launching-cluster/docker-compose",
+                //     ],
+                // },
                 {
                     type: "category",
-                    label: "Launching a Orion Cluster",
+                    label: "Pre-requisite For Executing Transactions and Queries",
                     items: [
-                        "getting-started/launching-cluster/overview",
-                        "getting-started/launching-cluster/private-configuration",
-                        "getting-started/launching-cluster/shared-configuration",
-                        "getting-started/launching-cluster/crypto-materials",
-                        "getting-started/launching-cluster/docker-compose",
+                        "getting-started/pre-requisite/curl",
+                        "getting-started/pre-requisite/gosdk",
                     ],
                 },
                 {
